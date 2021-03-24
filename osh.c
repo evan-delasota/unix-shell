@@ -115,6 +115,35 @@ void pipeRedir(char** args, int n) {
   wait(0);
 }
 
+void initProc(char** args, int bgProc) {
+  pid_t pid;
+  pid_t wPid;
+  int condition;
+
+  if (bgProc > 0) {
+    args[bgProc] = NULL;
+  }
+
+  pid = fork();
+
+  if (pid == 0) {
+    execvp(args[0], args);
+    perror("execution failure\n\n");
+    if (bgProc == 0) {
+      exit(1);
+    }
+  }
+
+  if (bgProc == 0) {
+    do {
+      wPid = waitpid(pid, &condition, WUNTRACED);
+    } while (!WIFEXITED(condition) && !WIFSIGNALED(condition));
+  } else {
+    printf("Initiating background process\n");
+    wPid = waitpid(-1, &condition, WNOHANG);
+  }
+}
+
 int main(int argc, const char * argv[]) {  
   char* input = NULL;
   char* last_command;
@@ -175,7 +204,7 @@ int main(int argc, const char * argv[]) {
           } else if (ioSymbol == 2) {
             pipeRedir(args, select);
           } else if (ioSymbol == 3) {
-            //initProc(args, select);
+            initProc(args, select);
           }
           break;
         }
