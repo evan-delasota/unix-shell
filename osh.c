@@ -35,6 +35,45 @@ char** tokenize(char* s) {
   return tokens;
 }
 
+void ioRedir(char** args, int n, int ioType) {
+  pid_t pid;
+  pid_t wPid;
+  mode_t modes = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH;
+  int direct = 0;
+  int condition = 0;
+
+  pid = fork();
+  if (pid == 0) {
+    if (ioType == 0) {
+      direct = open(args[n + 1], O_RDONLY, modes);
+    } else {
+      direct = open(args[n + 1], O_WRONLY | O_CREAT | O_TRUNC, modes);
+    }
+
+    if (direct < 0) {
+      perror("invalid file\n");
+      exit(1);
+    } else {
+      dup2(direct, ioType);
+      close(direct);
+      args[n] = NULL;
+      args[n + 1] = NULL;
+
+      if (execvp(args[0], args) < 0) {
+        perror("shell error");
+      }
+    }
+    exit(EXIT_FAILURE);
+  } else if (pid < 0) {
+    perror("Failed to create child process.\n");
+    exit(EXIT_FAILURE);
+  } else {
+    do {
+      wPid = waitpid(pid, &condition, WUNTRACED);
+    } while (!WIFEXITED(condition) && !WIFSIGNALED(condition));
+  }
+}
+
 int main(int argc, const char * argv[]) {  
   char* input = NULL;
   char* last_command;
@@ -91,7 +130,7 @@ int main(int argc, const char * argv[]) {
           isCommandOrFgProc = true;
 
           if (ioSymbol < 2) {
-            //ioRedir(args, select, ioSymbol);
+            ioRedir(args, select, ioSymbol);
           } else if (ioSymbol == 2) {
             //pipeRedir(args, select);
           } else if (ioSymbol == 3) {
