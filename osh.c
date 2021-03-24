@@ -74,6 +74,47 @@ void ioRedir(char** args, int n, int ioType) {
   }
 }
 
+void pipeRedir(char** args, int n) {
+  int pipefd[2];
+  char** argscopy = malloc(sizeof(char*) * (n + 1));
+  int i = 0;
+
+  for (i = 0; i < args; ++i) {
+    argscopy[i] = strdup(args[i]);
+  }
+  argscopy[i] = 0;
+
+  if (pipe(pipefd) < 0) {
+    perror("redirection failure\n");
+    return;
+  }
+
+  if (fork() == 0) {
+    dup2(pipefd[1], STDOUT_FILENO);
+    close(pipefd[0]);
+    close(pipefd[1]);
+    execvp(argscopy[0], argscopy);
+
+    perror("execution failure\n\n");
+    exit(1);
+  }
+
+  if (fork() == 0) {
+    dup2(pipefd[0], STDIN_FILENO);
+    close(pipefd[1]);
+    close(pipefd[0]);
+    execvp(args[n + 1], args + n + 1);
+
+    perror("execution failure\n\n");
+    exit(1);
+  }
+
+  close(pipefd[0]);
+  close(pipefd[1]);
+  wait(0);
+  wait(0);
+}
+
 int main(int argc, const char * argv[]) {  
   char* input = NULL;
   char* last_command;
@@ -132,7 +173,7 @@ int main(int argc, const char * argv[]) {
           if (ioSymbol < 2) {
             ioRedir(args, select, ioSymbol);
           } else if (ioSymbol == 2) {
-            //pipeRedir(args, select);
+            pipeRedir(args, select);
           } else if (ioSymbol == 3) {
             //initProc(args, select);
           }
