@@ -146,7 +146,7 @@ void initProc(char** args, int bgProc) {
 
 int main(int argc, const char * argv[]) {  
   char* input = NULL;
-  char* last_command [BUFSIZ];
+  char last_command [BUFSIZ];
   char** args;
   char* ioType[4] = {"<", ">", "|", "&"};
   int ioSymbol = 0;
