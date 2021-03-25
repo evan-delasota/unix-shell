@@ -10,7 +10,7 @@
 
 
 #define DELIM " \a\t\n\r"
-#define BUFSZ 64
+#define BUFSZ 80
 
 char** tokenize(char* s) {
   int i = 0;
