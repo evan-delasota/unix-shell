@@ -9,7 +9,7 @@
 #include <fcntl.h>
 
 
-#define DELIM "\t\r\n\a"
+#define DELIM " \a\t\n\r"
 #define BUFSZ 64
 
 char** tokenize(char* s) {
@@ -52,21 +52,20 @@ void ioRedir(char** args, int n, int ioType) {
 
     if (direct < 0) {
       perror("invalid file\n");
-      exit(1);
+      return;
     } else {
       dup2(direct, ioType);
       close(direct);
       args[n] = NULL;
       args[n + 1] = NULL;
 
-      if (execvp(args[0], args) < 0) {
+      if (execvp(args[0], args) == -1) {
         perror("shell error");
       }
+      exit(EXIT_FAILURE);
     }
-    exit(EXIT_FAILURE);
   } else if (pid < 0) {
     perror("Failed to create child process.\n");
-    exit(EXIT_FAILURE);
   } else {
     do {
       wPid = waitpid(pid, &condition, WUNTRACED);
@@ -79,12 +78,13 @@ void pipeRedir(char** args, int n) {
   char** argscopy = malloc(sizeof(char*) * (n + 1));
   int i = 0;
 
-  for (i = 0; i < args; ++i) {
+  while(i < args) {
     argscopy[i] = strdup(args[i]);
+    i++;
   }
   argscopy[i] = 0;
 
-  if (pipe(pipefd) < 0) {
+  if (pipe(pipefd) == -1) {
     perror("redirection failure\n");
     return;
   }
@@ -146,26 +146,30 @@ void initProc(char** args, int bgProc) {
 
 int main(int argc, const char * argv[]) {  
   char* input = NULL;
-  char* last_command;
+  char* last_command [BUFSIZ];
   char** args;
   char* ioType[4] = {"<", ">", "|", "&"};
   int ioSymbol = 0;
   int select;
   bool isCommandOrFgProc;
-
   bool finished = false;
-  
+  bool histFlag = false;
+
   while (!finished) {
     isCommandOrFgProc = false;
     ssize_t sz = 0;
 
-    printf("osh> ");
+    printf("\nosh> ");
     fflush(stdout);
-    getline(&input, &sz, stdin);
-    args = tokenize(input);
 
-    if (strncmp(args[0], "!!", 2) != 0) {
-      last_command = strdup(args[0]);
+
+    if (histFlag) {
+      printf("last command was: %s, executing now...\n", last_command);
+      args = tokenize(last_command);
+      histFlag = false;
+    } else {
+      getline(&input, &sz, stdin);
+      args = tokenize(input);
     }
 
     if (args[0] == NULL) {
@@ -173,20 +177,19 @@ int main(int argc, const char * argv[]) {
       free(args);
       continue;
     }
-    printf("input was: \n'%s'\n", input);
-
-    if (strcmp(args[0], "exit") == 0) {
-      finished = true;
-    }
+    printf("input was: \n'%s %s'\n", args[0], (args[1]) ? args[1] : "");
     // check for history (!!) command
     if (strncmp(args[0], "!!", 2) == 0) {
       if (strlen(last_command) == 0) {
         fprintf(stderr, "no last command to execute\n");
+        continue;
       } else {
-        printf("last command was: %s\n", last_command);
+        histFlag = true;
+        continue;
       }
-    } else if (strncmp(args[0], "exit", 4) == 0) {   // only compare first 4 letters
-      finished = true;
+    // only compare first 4 letters
+    } else if (strncmp(args[0], "exit", 4) == 0) {  
+      break;
     } else {
       select = 1;
       while (args[select] != NULL) {
@@ -195,10 +198,8 @@ int main(int argc, const char * argv[]) {
             break;
           }
         }
-        
         if (ioSymbol < 4) {
           isCommandOrFgProc = true;
-
           if (ioSymbol < 2) {
             ioRedir(args, select, ioSymbol);
           } else if (ioSymbol == 2) {
@@ -209,15 +210,15 @@ int main(int argc, const char * argv[]) {
           break;
         }
         select++;
-
       }
+
       if (!isCommandOrFgProc) {
         initProc(args, 0);
       }
-
-      free(args);
-      free(input);
     }
+      strcpy(last_command, input);
+      free(input);
+      free(args);
   }
   
   printf("osh exited\n");
