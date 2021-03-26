@@ -78,7 +78,7 @@ void pipeRedir(char** args, int n) {
   char** argscopy = malloc(sizeof(char*) * (n + 1));
   int i = 0;
 
-  while(i < args) {
+  while(i < n) {
     argscopy[i] = strdup(args[i]);
     i++;
   }
@@ -220,7 +220,7 @@ int main(int argc, const char * argv[]) {
     if (strncmp(input, "!!", 2) != 0) {
       strncpy(last_command, input, sizeof(input));
     }
-    
+
     free(input);
     free(args);
   }
