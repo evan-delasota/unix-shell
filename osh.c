@@ -177,6 +177,7 @@ int main(int argc, const char * argv[]) {
       free(args);
       continue;
     }
+
     printf("input was: \n'%s %s'\n", args[0], (args[1]) ? args[1] : "");
     // check for history (!!) command
     if (strncmp(args[0], "!!", 2) == 0) {
@@ -216,9 +217,12 @@ int main(int argc, const char * argv[]) {
         initProc(args, 0);
       }
     }
-      strcpy(last_command, input);
-      free(input);
-      free(args);
+    if (strncmp(input, "!!", 2) != 0) {
+      strncpy(last_command, input, sizeof(input));
+    }
+    
+    free(input);
+    free(args);
   }
   
   printf("osh exited\n");
